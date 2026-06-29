@@ -27,6 +27,16 @@ public enum NotchState {
 public enum NotchViews {
     case home
     case shelf
+    case todo
+
+    var allowsCloseGesture: Bool {
+        switch self {
+        case .home, .shelf:
+            return true
+        case .todo:
+            return false
+        }
+    }
 }
 
 enum SettingsEnum {
