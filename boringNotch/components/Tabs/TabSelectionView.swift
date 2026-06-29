@@ -37,7 +37,7 @@ struct TabSelectionView: View {
             ForEach(visibleTabs) { tab in
                     TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
                         withAnimation(.smooth) {
-                            coordinator.currentView = tab.view
+                            coordinator.selectView(tab.view)
                         }
                     }
                     .frame(height: 26)

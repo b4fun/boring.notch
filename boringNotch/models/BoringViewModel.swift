@@ -209,12 +209,11 @@ class BoringViewModel: NSObject, ObservableObject {
         self.coordinator.sneakPeek.show = false
         self.edgeAutoOpenActive = false
 
-        // Set the current view to shelf if it contains files and the user enables openShelfByDefault
-        // Otherwise, if the user has not enabled openLastShelfByDefault, set the view to home
+        // Set the default closed/open view: shelf can still take priority, otherwise restore the user's last selected tab.
         if !ShelfStateViewModel.shared.isEmpty && Defaults[.openShelfByDefault] {
             coordinator.currentView = .shelf
-        } else if !coordinator.openLastTabByDefault {
-            coordinator.currentView = .home
+        } else {
+            coordinator.currentView = coordinator.rememberedViewForOpening()
         }
     }
 

@@ -50,6 +50,8 @@ struct ExpandedItem {
 class BoringViewCoordinator: ObservableObject {
     static let shared = BoringViewCoordinator()
 
+    @AppStorage("lastSelectedNotchView") private var lastSelectedNotchViewRaw: String = NotchViews.home.rawValue
+
     @Published var currentView: NotchViews = .home
     @Published var helloAnimationRunning: Bool = false
     private var sneakPeekDispatch: DispatchWorkItem?
@@ -98,6 +100,24 @@ class BoringViewCoordinator: ObservableObject {
     @Published var selectedScreenUUID: String = NSScreen.main?.displayUUID ?? ""
 
     @Published var optionKeyPressed: Bool = true
+
+    var lastSelectedView: NotchViews {
+        NotchViews(rawValue: lastSelectedNotchViewRaw) ?? .home
+    }
+
+    func selectView(_ view: NotchViews) {
+        currentView = view
+        lastSelectedNotchViewRaw = view.rawValue
+    }
+
+    func rememberedViewForOpening() -> NotchViews {
+        let view = lastSelectedView
+        if view == .shelf && !Defaults[.boringShelf] {
+            return .home
+        }
+        return view
+    }
+
     private var accessibilityObserver: Any?
     private var hudReplacementCancellable: AnyCancellable?
 
@@ -122,6 +142,7 @@ class BoringViewCoordinator: ObservableObject {
         }
         
         selectedScreenUUID = preferredScreenUUID ?? NSScreen.main?.displayUUID ?? ""
+        currentView = rememberedViewForOpening()
         // Observe changes to accessibility authorization and react accordingly
         accessibilityObserver = NotificationCenter.default.addObserver(
             forName: Notification.Name.accessibilityAuthorizationChanged,
