@@ -16,6 +16,7 @@ let bundleIdentifier = Bundle.main.bundleIdentifier!
 let appVersion = "\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""))"
 
 let temporaryDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+let defaultLLMTodoSocketPath = "/tmp/boring-notch-llm-todos.sock"
 let spacing: CGFloat = 16
 
 struct CustomVisualizer: Codable, Hashable, Equatable, Defaults.Serializable {

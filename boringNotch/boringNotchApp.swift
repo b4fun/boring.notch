@@ -83,6 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             screenUnlockedObserver = nil
         }
         MusicManager.shared.destroy()
+        LLMTodoSocketServer.shared.stop()
         cleanupDragDetectors()
         cleanupWindows()
         XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
@@ -421,6 +422,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         setupDragDetectors()
+        LLMTodoSocketServer.shared.start()
 
         if coordinator.firstLaunch {
             DispatchQueue.main.async {

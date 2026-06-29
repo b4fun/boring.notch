@@ -48,6 +48,9 @@ struct SettingsView: View {
 //                NavigationLink(value: "Downloads") {
 //                    Label("Downloads", systemImage: "square.and.arrow.down")
 //                }
+                NavigationLink(value: "LLM TODOs") {
+                    Label("LLM TODOs", systemImage: "checklist")
+                }
                 NavigationLink(value: "Shelf") {
                     Label("Shelf", systemImage: "books.vertical")
                 }
@@ -83,6 +86,8 @@ struct SettingsView: View {
                     HUD()
                 case "Battery":
                     Charge()
+                case "LLM TODOs":
+                    LLMTodoSettings()
                 case "Shelf":
                     Shelf()
                 case "Shortcuts":
@@ -906,6 +911,59 @@ struct About: View {
             CheckForUpdatesView(updater: updaterController.updater)
         }
         .navigationTitle("About")
+    }
+}
+
+struct LLMTodoSettings: View {
+    @StateObject private var dataSource = TodoDataSource.shared
+
+    var body: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("LLM TODOs")
+                        .font(.headline)
+                    Text("A lightweight placeholder for TODO updates emitted by LLM sessions. Future settings will configure sources and predefined actions, such as jumping back to a linked app session.")
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text("Overview")
+            }
+
+            Section {
+                LabeledContent("Socket path") {
+                    HStack(spacing: 8) {
+                        Text(LLMTodoSocketServer.shared.socketPath)
+                            .textSelection(.enabled)
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(LLMTodoSocketServer.shared.socketPath, forType: .string)
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help("Copy socket path")
+                    }
+                }
+
+            } header: {
+                Text("Items")
+            }
+
+            Section {
+                Button("Configure LLM source") { }
+                    .disabled(true)
+                Button("Configure predefined actions") { }
+                    .disabled(true)
+            } header: {
+                Text("Coming soon")
+            } footer: {
+                Text("These placeholders will later connect incoming LLM updates to actions like navigating to another application's session.")
+            }
+        }
+        .navigationTitle("LLM TODOs")
     }
 }
 
