@@ -39,6 +39,10 @@ public enum NotchViews: String {
     }
 }
 
+extension Notification.Name {
+    static let llmTodoDidArrive = Notification.Name("LLMTodoDidArrive")
+}
+
 enum SettingsEnum {
     case general
     case about

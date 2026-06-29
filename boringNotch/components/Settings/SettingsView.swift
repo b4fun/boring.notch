@@ -948,6 +948,15 @@ struct LLMTodoSettings: View {
                     }
                 }
 
+                Button("Simulate incoming TODO") {
+                    let timestamp = Date().formatted(date: .omitted, time: .standard)
+                    let sources = ["codex", "claude code", "opencode"]
+                    dataSource.addLLMTodo(
+                        title: "Simulated LLM update at \(timestamp)",
+                        source: sources.randomElement()
+                    )
+                }
+
             } header: {
                 Text("Items")
             }

@@ -23,6 +23,7 @@ struct ContentView: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var brightnessManager = BrightnessManager.shared
     @ObservedObject var volumeManager = VolumeManager.shared
+    @ObservedObject var todoDataSource = TodoDataSource.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
@@ -63,6 +64,10 @@ struct ContentView: View {
 
         if coordinator.expandingView.type == .battery && coordinator.expandingView.show
             && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
+        {
+            chinWidth = 640
+        } else if coordinator.expandingView.type == .todo && coordinator.expandingView.show
+            && vm.notchState == .closed
         {
             chinWidth = 640
         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
@@ -214,6 +219,9 @@ struct ContentView: View {
         .background(dragDetector)
         .preferredColorScheme(.dark)
         .environmentObject(vm)
+        .onReceive(NotificationCenter.default.publisher(for: .llmTodoDidArrive)) { _ in
+            handleLLMTodoDidArrive()
+        }
         .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in
             anyDropDebounceTask?.cancel()
 
@@ -284,6 +292,9 @@ struct ContentView: View {
                             .frame(width: 76, alignment: .trailing)
                         }
                         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+                      } else if coordinator.expandingView.type == .todo && coordinator.expandingView.show
+                          && vm.notchState == .closed {
+                          LLMTodoPreviewLiveActivity()
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
@@ -364,6 +375,39 @@ struct ContentView: View {
             }
         }
         .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
+    }
+
+    @ViewBuilder
+    func LLMTodoPreviewLiveActivity() -> some View {
+        let source = todoDataSource.latestPreviewSource.isEmpty ? "LLM" : todoDataSource.latestPreviewSource
+        let activeCount = todoDataSource.openItems.filter { ($0.source ?? "LLM") == source }.count
+
+        HStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: "checklist")
+                    .symbolVariant(.none)
+                    .foregroundStyle(.white)
+                Text(source)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.gray)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(width: 180, alignment: .leading)
+
+            Rectangle()
+                .fill(.black)
+                .frame(width: vm.closedNotchSize.width + 10)
+
+            Text("\(activeCount) active")
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundStyle(.gray)
+                .lineLimit(1)
+                .frame(width: 90, alignment: .trailing)
+        }
+        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
     }
 
     @ViewBuilder
@@ -508,6 +552,16 @@ struct ContentView: View {
         withAnimation(animationSpring) {
             vm.open()
         }
+    }
+
+    private func handleLLMTodoDidArrive() {
+        hoverTask?.cancel()
+
+        if Defaults[.enableHaptics] {
+            haptics.toggle()
+        }
+
+        coordinator.toggleExpandingView(status: true, type: .todo)
     }
 
     // MARK: - Hover Management

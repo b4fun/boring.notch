@@ -64,12 +64,14 @@ struct TabSelectionView: View {
 struct TodoItem: Identifiable, Codable, Equatable {
     let id: UUID
     var title: String
+    var source: String?
     var isDone: Bool
     var createdAt: Date
 
-    init(id: UUID = UUID(), title: String, isDone: Bool = false, createdAt: Date = Date()) {
+    init(id: UUID = UUID(), title: String, source: String? = nil, isDone: Bool = false, createdAt: Date = Date()) {
         self.id = id
         self.title = title
+        self.source = source
         self.isDone = isDone
         self.createdAt = createdAt
     }
@@ -82,6 +84,8 @@ final class TodoDataSource: ObservableObject {
     @Published private(set) var items: [TodoItem] = [] {
         didSet { save() }
     }
+    @Published private(set) var latestPreviewTitle: String = ""
+    @Published private(set) var latestPreviewSource: String = ""
 
     private let storageKey = "boringNotch.todo.items"
 
@@ -92,14 +96,20 @@ final class TodoDataSource: ObservableObject {
         load()
     }
 
-    func addLLMTodo(title: String) {
+    func addLLMTodo(title: String, source: String? = nil) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSource = source?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        items.insert(TodoItem(title: trimmed), at: 0)
+        items.insert(TodoItem(title: trimmed, source: trimmedSource?.isEmpty == false ? trimmedSource : nil), at: 0)
+        latestPreviewTitle = trimmed
+        latestPreviewSource = trimmedSource?.isEmpty == false ? trimmedSource! : "LLM"
+        NotificationCenter.default.post(name: .llmTodoDidArrive, object: nil)
     }
 
     func clearAll() {
         items.removeAll()
+        latestPreviewTitle = ""
+        latestPreviewSource = ""
     }
 
     func performPrimaryAction(for item: TodoItem) {
@@ -335,7 +345,11 @@ final class LLMTodoSocketServer {
             if let title = dictionary["title"] as? String
                 ?? dictionary["message"] as? String
                 ?? dictionary["text"] as? String {
-                enqueueCreateTodo(title: title)
+                let source = dictionary["source"] as? String
+                    ?? dictionary["category"] as? String
+                    ?? dictionary["client"] as? String
+                    ?? dictionary["provider"] as? String
+                enqueueCreateTodo(title: title, source: source)
                 return jsonResponse(ok: true, message: "Created LLM TODO")
             }
         }
@@ -343,9 +357,9 @@ final class LLMTodoSocketServer {
         return jsonResponse(ok: false, message: "Unsupported LLM TODO command")
     }
 
-    private func enqueueCreateTodo(title: String) {
+    private func enqueueCreateTodo(title: String, source: String? = nil) {
         Task { @MainActor in
-            TodoDataSource.shared.addLLMTodo(title: title)
+            TodoDataSource.shared.addLLMTodo(title: title, source: source)
         }
     }
 
