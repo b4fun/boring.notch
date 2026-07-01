@@ -105,6 +105,7 @@ struct ContentView: View {
                         : cornerRadiusInsets.closed.bottom
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
+                    .frame(height: vm.notchState == .open ? vm.notchSize.height : nil, alignment: .top)
                     .background(.black)
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {

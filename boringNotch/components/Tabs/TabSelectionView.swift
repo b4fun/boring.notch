@@ -112,6 +112,21 @@ final class TodoDataSource: ObservableObject {
         latestPreviewSource = ""
     }
 
+    func clear(source: String) {
+        let normalizedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedSource.isEmpty else { return }
+
+        items.removeAll { item in
+            let itemSource = item.source?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (itemSource?.isEmpty == false ? itemSource! : "LLM") == normalizedSource
+        }
+
+        if latestPreviewSource == normalizedSource {
+            latestPreviewTitle = ""
+            latestPreviewSource = ""
+        }
+    }
+
     func performPrimaryAction(for item: TodoItem) {
         // Placeholder for future predefined actions, e.g. switching to a linked LLM/app session.
         NSLog("LLM TODO action requested for: \(item.title)")
@@ -379,22 +394,43 @@ final class LLMTodoSocketServer {
 }
 
 struct TodoView: View {
+    private let allSourcesFilter = "all"
+
     @StateObject private var dataSource = TodoDataSource.shared
+    @AppStorage("llmTodoSelectedSource") private var selectedSource = "all"
+
+    private var sources: [String] {
+        let itemSources = Set(dataSource.items.map { sourceName(for: $0) })
+        return [allSourcesFilter] + itemSources.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private var filteredItems: [TodoItem] {
+        guard selectedSource != allSourcesFilter else { return dataSource.items }
+        return dataSource.items.filter { sourceName(for: $0) == selectedSource }
+    }
+
+    private var filteredOpenItems: [TodoItem] {
+        filteredItems.filter { !$0.isDone }
+    }
+
+    private var filteredCompletedItems: [TodoItem] {
+        filteredItems.filter { $0.isDone }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
-            if dataSource.items.isEmpty {
+            if filteredItems.isEmpty {
                 emptyState
             } else {
                 ScrollView {
                     VStack(spacing: 8) {
-                        ForEach(dataSource.openItems) { item in
+                        ForEach(filteredOpenItems) { item in
                             todoRow(item)
                         }
 
-                        if !dataSource.completedItems.isEmpty {
+                        if !filteredCompletedItems.isEmpty {
                             completedSection
                         }
                     }
@@ -408,36 +444,88 @@ struct TodoView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "checklist")
-                .imageScale(.large)
-                .foregroundStyle(.white)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("LLM TODOs")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                Text("\(dataSource.openItems.count) open · \(dataSource.completedItems.count) done")
-                    .font(.caption)
-                    .foregroundStyle(.gray)
+        HStack(spacing: 8) {
+            ScrollView(.horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(sources, id: \.self) { source in
+                        sourcePill(source)
+                    }
+                }
             }
+            .scrollIndicators(.never)
 
-            Spacer()
-
-            if !dataSource.items.isEmpty {
+            if !filteredItems.isEmpty {
                 Button {
                     withAnimation(.smooth) {
-                        dataSource.clearAll()
+                        clearSelectedSource()
                     }
                 } label: {
                     Image(systemName: "trash")
-                        .frame(width: 28, height: 28)
+                        .frame(width: 26, height: 26)
                         .background(Color.white.opacity(0.12), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .help("Clear LLM TODOs")
+                .help(selectedSource == allSourcesFilter ? "Clear all LLM TODOs" : "Clear \(selectedSource) TODOs")
             }
         }
+        .onChange(of: sources) { _, newSources in
+            if !newSources.contains(selectedSource) {
+                selectedSource = allSourcesFilter
+            }
+        }
+    }
+
+    private func clearSelectedSource() {
+        if selectedSource == allSourcesFilter {
+            dataSource.clearAll()
+        } else {
+            dataSource.clear(source: selectedSource)
+        }
+    }
+
+    private func sourcePill(_ source: String) -> some View {
+        let isSelected = selectedSource == source
+        let displayName = source == allSourcesFilter ? "all" : source
+        let count = source == allSourcesFilter
+            ? dataSource.openItems.count
+            : dataSource.openItems.filter { sourceName(for: $0) == source }.count
+
+        return Button {
+            withAnimation(.smooth) {
+                selectedSource = source
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(displayName)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+                Text("\(count)")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(isSelected ? .white : .gray)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(
+                        isSelected ? Color.effectiveAccent.opacity(0.32) : Color.white.opacity(0.06),
+                        in: Capsule()
+                    )
+            }
+            .foregroundStyle(isSelected ? .white : .gray)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                isSelected ? Color.effectiveAccent.opacity(0.22) : Color.white.opacity(0.05),
+                in: Capsule()
+            )
+            .shadow(color: isSelected ? Color.effectiveAccent.opacity(0.16) : .clear, radius: 2)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func sourceName(for item: TodoItem) -> String {
+        let source = item.source?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return source?.isEmpty == false ? source! : "LLM"
     }
 
     private var emptyState: some View {
@@ -448,7 +536,7 @@ struct TodoView: View {
             Text("All clear")
                 .font(.headline)
                 .foregroundStyle(.white)
-            Text("LLM updates will appear here.")
+            Text(selectedSource == allSourcesFilter ? "LLM updates will appear here." : "No updates for \(selectedSource).")
                 .font(.caption)
                 .foregroundStyle(.gray)
         }
@@ -462,9 +550,9 @@ struct TodoView: View {
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(.gray)
-                .padding(.top, dataSource.openItems.isEmpty ? 0 : 4)
+                .padding(.top, filteredOpenItems.isEmpty ? 0 : 4)
 
-            ForEach(dataSource.completedItems) { item in
+            ForEach(filteredCompletedItems) { item in
                 todoRow(item)
                     .opacity(0.55)
             }
